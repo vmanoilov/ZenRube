@@ -1,0 +1,13 @@
+experts:
+  - pragmatic_engineer
+  - systems_architect
+  - security_analyst
+synthesis_style: balanced
+parallel_execution: true
+provider: rube
+logging:
+  level: INFO
+  debug: false
+cache:
+  backend: memory
+  ttl: 120

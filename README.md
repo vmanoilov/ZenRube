@@ -1,104 +1,163 @@
 # zenrube-mcp
 
-**Zen-Inspired Consensus for Rube Workflows**
+Zenrube is a Zen-inspired consensus engine that orchestrates multiple LLM experts in parallel, synthesising their perspectives into a single actionable recommendation. It is designed for the Rube automation platform but is provider-agnostic and can be embedded into any Python project.
 
-*Multi-model AI orchestration adapted from [Zen MCP](https://github.com/BeehiveInnovations/zen-mcp-server), built natively for the [Rube](https://rube.composio.dev) automation platform*
+## ✨ Features
 
----
-
-## 🎯 What is This?
-
-**zenrube-mcp** brings the multi-model AI consensus patterns from Zen MCP to Rube's cloud automation platform. Instead of being limited to one AI model, you can now orchestrate multiple AI experts to:
-
-- ✅ Get diverse perspectives on complex decisions
-- ✅ Reduce AI bias and groupthink
-- ✅ Synthesize expert opinions into actionable recommendations
-- ✅ Integrate with Rube's 500+ app connections
-
-## 🧠 The Concept
-
-**Original Idea:** [@vmanoilov](https://github.com/vmanoilov)  
-**Inspired By:** [Zen MCP](https://github.com/BeehiveInnovations/zen-mcp-server) by BeehiveInnovations  
-**Platform:** [Rube](https://rube.composio.dev) by Composio
-
-### How It Works
-
-```
-Question → Multiple AI Experts → Individual Analyses → Synthesized Consensus
-```
-
-Each expert analyzes the problem from a different perspective:
-- **Expert 1:** Pragmatic engineering (practical trade-offs, real-world constraints)
-- **Expert 2:** Systems architecture (scalability, maintainability, patterns)
-- **Expert 3:** Security focus (vulnerabilities, best practices, compliance)
-
-The system then synthesizes all perspectives into a balanced recommendation with confidence scoring.
-
----
-
-## 📊 Example
-
-**Question:** "Should we use Redis or Memcached for session caching?"
-
-**Result:**
-- 3 detailed expert analyses from different perspectives
-- Synthesized consensus highlighting agreements and disagreements
-- Clear recommendation with HIGH confidence
-- Actionable operational checklist
-
----
+- 🔀 Parallel or sequential expert orchestration with execution tracing
+- 🧠 Three synthesis styles: `balanced`, `critical`, and `collaborative`
+- 🪪 Configurable expert personas with custom registrations
+- 🗂️ YAML configuration discovery (`.zenrube.yml` in project or home directory)
+- 🧱 Structured Pydantic models for responses and configuration
+- 💾 TTL-aware caching (in-memory, file-system, or Redis)
+- 🔌 Pluggable LLM providers (Rube, OpenAI, or custom implementations)
+- 🧪 Comprehensive unit test suite and CI pipeline
 
 ## 🚀 Quick Start
 
-In Rube's REMOTE_WORKBENCH:
+### Installation
+
+```bash
+pip install zenrube-mcp
+```
+
+or for local development:
+
+```bash
+git clone https://github.com/vmanoilov/zenrube-mcp.git
+cd zenrube-mcp
+pip install -e .[dev]
+```
+
+### CLI Usage
+
+```bash
+zenrube "Should we adopt an event-driven architecture?" \
+  --style balanced \
+  --experts pragmatic_engineer systems_architect security_analyst \
+  --provider rube \
+  --model gpt-4o-mini
+```
+
+Flags:
+
+- `--style`: synthesis tone (`balanced`, `critical`, `collaborative`)
+- `--experts`: one or more registered expert slugs
+- `--sequential`: force sequential execution
+- `--provider`: provider registry key to use
+- `--model`: model identifier passed to the provider
+- `--debug`: enable verbose logging
+- `--no-cache`: bypass the caching layer for a single run
+
+### Python API
 
 ```python
 from zenrube import zen_consensus
 
 result = zen_consensus(
-    question="Your complex decision here",
-    models=["expert_1", "expert_2", "expert_3"],
-    synthesis_style="balanced"
+    "Should we use microservices?",
+    experts=["pragmatic_engineer", "systems_architect"],
+    synthesis_style="critical",
+    provider="rube",
+    model="claude-3-sonnet",
 )
 
-print(result['consensus'])
+print(result["consensus"])
 ```
 
----
+The returned dictionary conforms to `models.ConsensusResult` and includes an `execution_id`, expert responses, synthesis text, and metadata about degraded states.
 
-## 🏗️ Architecture
+## ⚙️ Configuration
 
-Adapted from Zen MCP's core patterns:
+Zenrube loads configuration from `.zenrube.yml` in the project root and the user's home directory. A minimal example:
 
-| Zen MCP Feature | Rube Equivalent | Status |
-|----------------|-----------------|--------|
-| Multi-model orchestration | `invoke_llm` with prompts | ✅ Works |
-| Conversation threading | Workbench state | ✅ Works |
-| Synthesis pattern | LLM combining responses | ✅ Works |
-| Structured output | JSON results | ✅ Works |
+```yaml
+experts:
+  - pragmatic_engineer
+  - systems_architect
+  - security_analyst
+synthesis_style: balanced
+parallel_execution: true
+provider: rube
+logging:
+  level: INFO
+  debug: false
+cache:
+  backend: memory
+  ttl: 300
+custom_experts:
+  product_manager:
+    name: Product Manager
+    system_prompt: |
+      You are a product manager balancing user value, delivery speed, and stakeholder impact.
+```
 
----
+Custom experts registered through config become available to the CLI and Python API immediately.
+
+## 🔌 Providers
+
+Providers implement the `providers.LLMProvider` interface and are registered with the `ProviderRegistry`. Built-in providers include:
+
+- `RubeProvider`: delegates to Rube's `invoke_llm`
+- `OpenAIProvider`: thin wrapper around the OpenAI Chat Completions API
+
+Register your own provider:
+
+```python
+from typing import Optional
+
+from providers import LLMProvider, ProviderRegistry
+
+class MockProvider(LLMProvider):
+    name = "mock"
+
+    def query(self, prompt: str, *, model: Optional[str] = None, **kwargs):
+        return "Mock response", {"model": model}
+
+ProviderRegistry.register(MockProvider())
+ProviderRegistry.set_default("mock")
+```
+
+To plug in Rube's native helper, call:
+
+```python
+from zenrube import configure_rube_client
+from rube import invoke_llm as rube_invoke
+
+configure_rube_client(rube_invoke)
+```
+
+## 💾 Caching
+
+The caching layer defaults to in-memory storage. Configure file or Redis backends in `.zenrube.yml`:
+
+```yaml
+cache:
+  backend: file
+  directory: .zenrube-cache
+  ttl: 600
+```
+
+Set `backend: redis` and a `url` to use Redis. You can also disable caching per request with the CLI `--no-cache` flag or the API `use_cache=False` argument.
+
+## 🧪 Testing
+
+```bash
+pip install -e .[dev]
+pytest --cov=src
+```
+
+Continuous integration runs formatting (`black`), linting (`flake8`), typing (`mypy`), and coverage on Python 3.8–3.12.
 
 ## 🤝 Contributing
 
-Contributions welcome! This is experimental - help make it better.
-
----
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
 
-Apache License 2.0 (matches Zen MCP)
+Apache License 2.0
 
----
+## 🙏 Acknowledgements
 
-## 🙏 Acknowledgments
-
-- **Original Concept:** [@vmanoilov](https://github.com/vmanoilov)
-- **Inspired By:** [Zen MCP](https://github.com/BeehiveInnovations/zen-mcp-server)
-- **Platform:** [Rube](https://rube.composio.dev) by Composio
-
----
-
-**Built with ❤️ by [@vmanoilov](https://github.com/vmanoilov)**
-
-*"Many Models. One Mind."*
+- Concept by [@vmanoilov](https://github.com/vmanoilov)
+- Inspired by [Zen MCP](https://github.com/BeehiveInnovations/zen-mcp-server)

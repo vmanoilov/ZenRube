@@ -22,10 +22,12 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
-    # No external dependencies - uses Rube's invoke_llm helper
+    "pydantic>=1.10",
+    "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -35,6 +37,12 @@ dev = [
     "black>=23.0",
     "flake8>=6.0",
     "mypy>=1.0",
+]
+providers = [
+    "openai>=1.0.0",
+]
+redis = [
+    "redis>=5.0",
 ]
 
 [project.urls]
