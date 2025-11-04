@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import re
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -50,8 +52,13 @@ class FileCache(CacheBackend):
         self.directory.mkdir(parents=True, exist_ok=True)
 
     def _path(self, key: str) -> Path:
-        safe_key = key.replace("/", "_")
-        return self.directory / f"{safe_key}.json"
+        safe_key = re.sub(r"[^A-Za-z0-9_.-]", "_", key)
+        if len(safe_key) > 100:
+            safe_key = safe_key[:100]
+        digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
+        if not safe_key:
+            safe_key = "entry"
+        return self.directory / f"{safe_key}_{digest}.json"
 
     def get(self, key: str) -> Any:
         path = self._path(key)
@@ -128,7 +135,10 @@ class CacheManager:
         ttl = config.get("ttl")
         backend: CacheBackend
         if backend_name == "memory":
-            backend = InMemoryCache()
+            if isinstance(cls._backend, InMemoryCache):
+                backend = cls._backend
+            else:
+                backend = InMemoryCache()
         elif backend_name == "file":
             directory = Path(config.get("directory", ".zenrube-cache"))
             backend = FileCache(directory)

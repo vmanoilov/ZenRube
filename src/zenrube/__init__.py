@@ -97,6 +97,19 @@ def _build_synthesis_prompt(
     for response in responses:
         if response.response:
             payload.append(response.model_dump())
+    payload: List[Any] = []
+    for response in responses:
+        if not response.response:
+            continue
+        try:
+            serialised = response.model_dump(mode="json")
+        except (TypeError, ValueError):
+            serialised = None
+        if isinstance(serialised, dict):
+            payload.append(serialised)
+        else:
+            fallback = serialised if serialised is not None else response
+            payload.append(str(fallback))
     instructions = {
         "balanced": (
             "Provide a balanced synthesis highlighting agreements and "
@@ -304,6 +317,7 @@ def zen_consensus(
     for response in responses:
         success_flags.append(response.succeeded)
     degraded = not all(success_flags)
+    degraded = not all(response.succeeded for response in responses)
     warnings: List[str] = []
     if degraded:
         warnings.append(DEGRADED_WARNING)
@@ -313,6 +327,7 @@ def zen_consensus(
     experts_consulted: List[str] = []
     for response in responses:
         experts_consulted.append(response.name)
+    experts_consulted: List[str] = [response.name for response in responses]
     metadata = {
         "parallel_execution": synthesis_config.parallel_execution,
     }
