@@ -93,6 +93,10 @@ def _build_prompt(expert: ExpertDefinition, question: str) -> str:
 def _build_synthesis_prompt(
     style: str, question: str, responses: Iterable[ExpertResponse]
 ) -> str:
+    payload: List[Dict[str, Any]] = []
+    for response in responses:
+        if response.response:
+            payload.append(response.model_dump())
     payload: List[Any] = []
     for response in responses:
         if not response.response:
@@ -309,6 +313,10 @@ def zen_consensus(
         execution_id,
         model,
     )
+    success_flags: List[bool] = []
+    for response in responses:
+        success_flags.append(response.succeeded)
+    degraded = not all(success_flags)
     degraded = not all(response.succeeded for response in responses)
     warnings: List[str] = []
     if degraded:
@@ -316,6 +324,9 @@ def zen_consensus(
     if consensus_text is None:
         warnings.append("Consensus synthesis unavailable.")
 
+    experts_consulted: List[str] = []
+    for response in responses:
+        experts_consulted.append(response.name)
     experts_consulted: List[str] = [response.name for response in responses]
     metadata = {
         "parallel_execution": synthesis_config.parallel_execution,
