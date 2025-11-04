@@ -106,7 +106,7 @@ Register your own provider:
 ```python
 from typing import Optional
 
-from providers import LLMProvider, ProviderRegistry
+from zenrube.providers import LLMProvider, ProviderRegistry
 
 class MockProvider(LLMProvider):
     name = "mock"

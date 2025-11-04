@@ -265,6 +265,7 @@ def zen_consensus(
         synthesis_config.synthesis_style,
         question,
         "|".join(selected_experts),
+        model or "",
     )
 
     if use_cache:
