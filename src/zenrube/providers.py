@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar, Dict, Optional
 
 LOGGER = logging.getLogger("zenrube.providers")
 
@@ -69,8 +69,8 @@ class OpenAIProvider(LLMProvider):
 
 
 class ProviderRegistry:
-    _providers: Dict[str, LLMProvider] = {}
-    _default: str = "rube"
+    _providers: ClassVar[Dict[str, LLMProvider]] = {}
+    _default: ClassVar[str] = "rube"
 
     @classmethod
     def register(cls, provider: LLMProvider) -> None:
