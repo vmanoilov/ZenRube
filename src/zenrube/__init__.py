@@ -14,7 +14,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from .cache import CacheManager, build_cache_key
 from .config import build_synthesis_config, load_config
-from .experts import ExpertDefinition, get_expert, list_experts
+from .experts_module import ExpertDefinition, get_expert, list_experts
 from .models import (
     ConsensusResult,
     ExpertResponse,
