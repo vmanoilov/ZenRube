@@ -1,17 +1,18 @@
 # zenrube-mcp
 
-Zenrube is a Zen-inspired consensus engine that orchestrates multiple LLM experts in parallel, synthesising their perspectives into a single actionable recommendation. It is designed for the Rube automation platform but is provider-agnostic and can be embedded into any Python project.
+Zenrube is a sophisticated expert-based automation system that provides specialized components for intelligent data processing, routing, and content generation. Built for the Rube automation platform, it features a modular expert architecture with configurable routing and caching capabilities.
 
 ## ✨ Features
 
-- 🔀 Parallel or sequential expert orchestration with execution tracing
-- 🧠 Three synthesis styles: `balanced`, `critical`, and `collaborative`
-- 🪪 Configurable expert personas with custom registrations
-- 🗂️ YAML configuration discovery (`.zenrube.yml` in project or home directory)
-- 🧱 Structured Pydantic models for responses and configuration
-- 💾 TTL-aware caching (in-memory, file-system, or Redis)
-- 🔌 Pluggable LLM providers (Rube, OpenAI, or custom implementations)
-- 🧪 Comprehensive unit test suite and CI pipeline
+- 🧠 **Expert System Architecture**: Specialized expert modules for different tasks
+- 🔀 **Semantic Routing**: Intelligent text analysis and intent detection
+- 🧹 **Data Processing**: Automated data cleaning and preprocessing
+- 📝 **Content Generation**: AI-powered summarization and content creation
+- 📤 **Publishing Pipeline**: Structured content publishing and distribution
+- 🗂️ **YAML Configuration**: Flexible configuration management (`.zenrube.yml`)
+- 💾 **Caching System**: TTL-aware caching with multiple backend support
+- 🔌 **Extensible Design**: Plugin-based architecture for custom experts
+- 🧪 **Comprehensive Testing**: Full test suite with CI pipeline
 
 ## 🚀 Quick Start
 
@@ -29,43 +30,68 @@ cd zenrube-mcp
 pip install -e .[dev]
 ```
 
-### CLI Usage
+### Available Experts
 
-```bash
-zenrube "Should we adopt an event-driven architecture?" \
-  --style balanced \
-  --experts pragmatic_engineer systems_architect security_analyst \
-  --provider rube \
-  --model gpt-4o-mini
-```
+The system currently includes four specialized experts:
 
-Flags:
-
-- `--style`: synthesis tone (`balanced`, `critical`, `collaborative`)
-- `--experts`: one or more registered expert slugs
-- `--sequential`: force sequential execution
-- `--provider`: provider registry key to use
-- `--model`: model identifier passed to the provider
-- `--debug`: enable verbose logging
-- `--no-cache`: bypass the caching layer for a single run
-
-### Python API
+#### Semantic Router Expert
+Analyzes input text to infer intent and route data to appropriate handlers.
 
 ```python
-from zenrube import zen_consensus
+from zenrube.experts import SemanticRouterExpert
 
-result = zen_consensus(
-    "Should we use microservices?",
-    experts=["pragmatic_engineer", "systems_architect"],
-    synthesis_style="critical",
-    provider="rube",
-    model="claude-3-sonnet",
-)
-
-print(result["consensus"])
+router = SemanticRouterExpert()
+result = router.run("Error: Database connection failed")
+# Returns: {"input": "...", "intent": "error", "route": "debug_expert"}
 ```
 
-The returned dictionary conforms to `models.ConsensusResult` and includes an `execution_id`, expert responses, synthesis text, and metadata about degraded states.
+#### Data Cleaner Expert
+Processes and cleans data for consistent formatting and analysis.
+
+```python
+from zenrube.experts import DataCleanerExpert
+
+cleaner = DataCleanerExpert()
+result = cleaner.run(raw_data)
+# Returns cleaned and structured data
+```
+
+#### Summarizer Expert
+Generates concise summaries of text content using AI.
+
+```python
+from zenrube.experts import SummarizerExpert
+
+summarizer = SummarizerExpert()
+result = summarizer.run(long_text_content)
+# Returns summary and metadata
+```
+
+#### Publisher Expert
+Handles content formatting and publishing workflows.
+
+```python
+from zenrube.experts import PublisherExpert
+
+publisher = PublisherExpert()
+result = publisher.run(formatted_content)
+# Returns published content with distribution metadata
+```
+
+### Expert Registry
+
+All experts are registered and discoverable through the expert registry:
+
+```python
+from zenrube.experts_module import list_experts, get_expert
+
+# List all available experts
+experts = list_experts()
+print(experts)  # ['semantic_router', 'data_cleaner', 'summarizer', 'publisher']
+
+# Get specific expert
+expert = get_expert('semantic_router')
+```
 
 ## ⚙️ Configuration
 
@@ -84,74 +110,108 @@ logging:
   debug: false
 cache:
   backend: memory
-  ttl: 300
-custom_experts:
-  product_manager:
-    name: Product Manager
-    system_prompt: |
-      You are a product manager balancing user value, delivery speed, and stakeholder impact.
+  ttl: 120
 ```
 
-Custom experts registered through config become available to the CLI and Python API immediately.
+## 🔌 Architecture
 
-## 🔌 Providers
+The system is built on a modular expert architecture:
 
-Providers implement the `providers.LLMProvider` interface and are registered with the `ProviderRegistry`. Built-in providers include:
-
-- `RubeProvider`: delegates to Rube's `invoke_llm`
-- `OpenAIProvider`: thin wrapper around the OpenAI Chat Completions API
-
-Register your own provider:
+### Expert Registry
+All experts are registered and managed through the `ExpertRegistry`:
 
 ```python
-from typing import Optional
+from zenrube.experts_module import ExpertRegistry, ExpertDefinition
 
-from zenrube.providers import LLMProvider, ProviderRegistry
+# Register a custom expert
+custom_expert = ExpertDefinition(
+    slug="custom_processor",
+    name="Custom Processor",
+    description="Processes custom data types",
+    handler=custom_handler_function
+)
 
-class MockProvider(LLMProvider):
-    name = "mock"
-
-    def query(self, prompt: str, *, model: Optional[str] = None, **kwargs):
-        return "Mock response", {"model": model}
-
-ProviderRegistry.register(MockProvider())
-ProviderRegistry.set_default("mock")
+ExpertRegistry.register(custom_expert)
 ```
 
-To plug in Rube's native helper, call:
+### Provider System
+The system includes a provider architecture for LLM integration:
 
 ```python
+from zenrube.providers import ProviderRegistry
+
+# Configure Rube provider
 from zenrube import configure_rube_client
 from rube import invoke_llm as rube_invoke
-
 configure_rube_client(rube_invoke)
 ```
 
 ## 💾 Caching
 
-The caching layer defaults to in-memory storage. Configure file or Redis backends in `.zenrube.yml`:
+The caching system supports multiple backends configured in `.zenrube.yml`:
 
 ```yaml
 cache:
-  backend: file
+  backend: memory    # or 'file', 'redis'
   directory: .zenrube-cache
-  ttl: 600
+  ttl: 120
 ```
 
-Set `backend: redis` and a `url` to use Redis. You can also disable caching per request with the CLI `--no-cache` flag or the API `use_cache=False` argument.
+Current backends:
+- **memory**: In-memory caching (default)
+- **file**: File-system based caching
+- **redis**: Redis-based distributed caching
 
 ## 🧪 Testing
+
+Run the comprehensive test suite:
 
 ```bash
 pip install -e .[dev]
 pytest --cov=src
 ```
 
+Test coverage includes:
+- Expert functionality and edge cases
+- Configuration loading and validation
+- Caching mechanisms
+- Provider integration
+- Error handling and degraded states
+
 Continuous integration runs formatting (`black`), linting (`flake8`), typing (`mypy`), and coverage on Python 3.8–3.12.
+
+## 📁 Project Structure
+
+```
+zenrube-mcp/
+├── src/zenrube/
+│   ├── experts/          # Core expert implementations
+│   │   ├── semantic_router.py
+│   │   ├── data_cleaner.py
+│   │   ├── summarizer.py
+│   │   └── publisher.py
+│   ├── experts_module.py # Expert registry and definitions
+│   ├── config.py        # Configuration management
+│   ├── cache.py         # Caching layer
+│   ├── providers.py     # LLM provider interfaces
+│   └── models.py        # Data models
+├── tests/               # Comprehensive test suite
+├── examples/            # Usage examples and demos
+├── .zenrube.yml        # Default configuration
+└── pyproject.toml      # Project metadata and dependencies
+```
 
 ## 🤝 Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and contribution workflows.
+
+### Adding New Experts
+
+1. Create a new expert class inheriting from the base expert interface
+2. Add metadata and configuration
+3. Register the expert in the expert module
+4. Add comprehensive tests
+5. Update documentation
 
 ## 📄 License
 
@@ -160,4 +220,5 @@ Apache License 2.0
 ## 🙏 Acknowledgements
 
 - Concept by [@vmanoilov](https://github.com/vmanoilov)
-- Inspired by [Zen MCP](https://github.com/BeehiveInnovations/zen-mcp-server)
+- Built for the Rube automation platform
+- Inspired by modular AI architectures and expert systems
