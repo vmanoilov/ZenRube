@@ -98,4 +98,5 @@ def list_experts() -> list[str]:
         return [f"Error listing experts: {str(e)}"]
 
 # Export FastMCP-compatible app
-app = server.streamable_http_app
+app = server.app
+
