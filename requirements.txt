@@ -1,5 +1,5 @@
 # Core dependencies for zenrube-mcp
-pydantic>=1.10,<2
-PyYAML>=6.0
-fastapi>=0.95,<0.100
-uvicorn[standard]>=0.22,<1.0
+pydantic==2.0.3
+PyYAML>=6.0.1
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
