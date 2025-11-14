@@ -18,18 +18,50 @@ expert_registry = ExpertRegistry()
 @server.tool()
 def route(prompt: str) -> list[str]:
     """Return the expert sequence from the real ZenRube semantic router."""
-    result = semantic_router.run(prompt)
-    # Extract route from the result
-    return [result.get("route", "general_handler")]
+    try:
+        result = semantic_router.run(prompt)
+        # Extract route from the result
+        if isinstance(result, dict):
+            return [result.get("route", "general_handler")]
+        else:
+            return ["general_handler"]
+    except Exception as e:
+        return [f"Error routing prompt: {str(e)}"]
 
 @server.tool()
 def run(expert: str, prompt: str) -> str:
     """Execute a single ZenRube expert."""
     try:
-        expert_definition = get_expert(expert)
-        return expert_definition.build_prompt(prompt)
+        # First try the expert registry system
+        try:
+            expert_instance = expert_registry.load_expert(expert)
+            result = expert_instance.run(prompt)
+            if isinstance(result, dict):
+                return str(result)
+            else:
+                return str(result)
+        except ModuleNotFoundError:
+            # Fall back to the experts_module system
+            expert_definition = get_expert(expert)
+            if hasattr(expert_definition, 'build_prompt') and callable(expert_definition.build_prompt):
+                return expert_definition.build_prompt(prompt)
+            else:
+                return f"Error: Expert '{expert}' found but build_prompt method not available."
     except KeyError:
         return f"Error: Expert '{expert}' not found."
+    except Exception as e:
+        return f"Error executing expert '{expert}': {str(e)}"
+
+@server.tool()
+def list_experts() -> list[str]:
+    """List all available experts."""
+    try:
+        registry_experts = list(expert_registry.list_available_experts())
+        from zenrube.experts_module import list_experts as list_core_experts
+        core_experts = list(list_core_experts())
+        return registry_experts + core_experts
+    except Exception as e:
+        return [f"Error listing experts: {str(e)}"]
 
 # export app for FastMCP
 app = server.streamable_http_app
