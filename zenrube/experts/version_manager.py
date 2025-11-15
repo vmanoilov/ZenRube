@@ -10,7 +10,7 @@ import os
 import re
 import logging
 from typing import Any, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Configure logging for the version manager
 logging.basicConfig(level=logging.INFO)
@@ -200,7 +200,7 @@ class VersionManagerExpert:
         
         # Create changelog entry
         changelog_entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "expert_name": expert_name,
             "old_version": old_version,
             "new_version": new_version,

@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Tuple
 import pytest
 
 from zenrube import cache, config, experts, providers
+from zenrube.experts_module import get_expert
 import zenrube
 
 
@@ -60,7 +61,7 @@ logging:
 
     data = config.load_config(config_path)
     assert data["logging"]["level"].upper() == "DEBUG"
-    expert = experts.get_expert("test_custom")
+    expert = get_expert("test_custom")
     assert "test data" in expert.system_prompt
 
 

@@ -32,7 +32,7 @@ class TestFullSystemIntegration:
             [sys.executable, "-m", "zenrube.cli", "--help"],
             capture_output=True,
             text=True,
-            cwd="/home/vlad/zenrube/zenrube-mcp"
+            cwd=os.getcwd()
         )
         
         assert result.returncode == 0
@@ -49,7 +49,7 @@ class TestFullSystemIntegration:
             [sys.executable, "-m", "zenrube.cli", "version"],
             capture_output=True,
             text=True,
-            cwd="/home/vlad/zenrube/zenrube-mcp"
+            cwd=os.getcwd()
         )
         
         assert result.returncode == 0
@@ -290,7 +290,7 @@ class TestFullSystemIntegration:
             [sys.executable, "-m", "zenrube.cli", "list"],
             capture_output=True,
             text=True,
-            cwd="/home/vlad/zenrube/zenrube-mcp"
+            cwd=os.getcwd()
         )
         
         # Command should run without crashing
@@ -306,7 +306,7 @@ class TestFullSystemIntegration:
             [sys.executable, "-m", "zenrube.cli", "version"],
             capture_output=True,
             text=True,
-            cwd="/home/vlad/zenrube/zenrube-mcp"
+            cwd=os.getcwd()
         )
         
         assert result.returncode == 0
@@ -453,7 +453,7 @@ class TestFullSystemIntegration:
                  "--expert", "data_cleaner", "--input", test_input],
                 capture_output=True,
                 text=True,
-                cwd="/home/vlad/zenrube/zenrube-mcp"
+                cwd=os.getcwd()
             )
             
             # Should not crash - allow any return code
@@ -464,7 +464,7 @@ class TestFullSystemIntegration:
                 [sys.executable, "-m", "zenrube.cli", "autopublish"],
                 capture_output=True,
                 text=True,
-                cwd="/home/vlad/zenrube/zenrube-mcp"
+                cwd=os.getcwd()
             )
             
             # Should run without crashing

@@ -12,7 +12,7 @@ import os
 import json
 import logging
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Import required expert modules
 from zenrube.experts.version_manager import VersionManagerExpert
@@ -141,7 +141,7 @@ class AutoPublisherExpert:
                 return {
                     "status": "skipped",
                     "message": "No version updates detected - publication skipped",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
             
             self._log_activity(f"Found updates for {len(updated_experts)} experts: {list(updated_experts.keys())}")
@@ -197,7 +197,7 @@ class AutoPublisherExpert:
             message (str): The activity message to log.
         """
         try:
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = datetime.now(timezone.utc).isoformat()
             log_entry = f"[{timestamp}] {message}\n"
             
             # Append to activity log file

@@ -71,7 +71,7 @@ def load_config(path: Optional[os.PathLike[str]] = None) -> Dict[str, Any]:
 
 
 def _register_configured_experts(config: Mapping[str, Any]) -> None:
-    from zenrube.experts import ExpertDefinition, register_custom_expert
+    from zenrube.experts_module import ExpertDefinition, register_custom_expert
     
     custom_experts = config.get("custom_experts", {})
     if not isinstance(custom_experts, Mapping):
