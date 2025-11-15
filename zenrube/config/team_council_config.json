@@ -1,0 +1,19 @@
+{
+  "enabled_brains": [
+    "summarizer",
+    "systems_architect",
+    "security_analyst",
+    "data_cleaner",
+    "semantic_router",
+    "llm_connector"
+  ],
+  "max_brain_outputs": 8,
+  "use_remote_llm_for_synthesis": true,
+  "synthesis_provider": "llm_connector",
+  "critique_style": "blunt_constructive",
+  "roasting_enabled": true,
+  "dynamic_profile_enabled": true,
+  "strict_metadata_validation": true,
+  "auto_fix_missing_metadata": true,
+  "auto_fix_version_mismatch": false
+}

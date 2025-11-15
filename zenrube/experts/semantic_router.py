@@ -51,6 +51,11 @@ EXPERTS = {
     "rube_adapter": [
         "convert", "transform", "adapt", "bridge",
         "interface", "mapping", "serialize"
+    ],
+    "llm_connector": [
+        "llm", "openai", "claude", "gemini", "qwen", "grok",
+        "external model", "ai model", "chatgpt", "anthropic",
+        "llama", "provider", "api call", "remote model"
     ]
 }
 

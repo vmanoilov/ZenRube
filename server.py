@@ -42,5 +42,36 @@ def list_experts() -> list[str]:
     except Exception as e:
         return [f"list_error: {str(e)}"]
 
+@mcp.tool
+def configure_llm(provider: str, model: str, api_key: str, endpoint: str = "") -> str:
+    """
+    Configure LLM provider settings for the LLM Connector Expert.
+    
+    Args:
+        provider (str): LLM provider name (openai, qwen, grok, claude, gemini)
+        model (str): Model name to use
+        api_key (str): API key for the provider
+        endpoint (str, optional): Custom API endpoint URL
+        
+    Returns:
+        str: Success or error message
+    """
+    try:
+        from zenrube.config.llm_config_loader import save_llm_config
+        
+        config = {
+            "provider": provider,
+            "model": model,
+            "api_key": api_key,
+            "endpoint": endpoint
+        }
+        
+        if save_llm_config(config):
+            return f"LLM configuration saved successfully for provider: {provider}"
+        else:
+            return "Failed to save LLM configuration"
+            
+    except Exception as e:
+        return f"Configuration error: {str(e)}"
 # FastMCP export
 app = mcp

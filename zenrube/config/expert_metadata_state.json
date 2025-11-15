@@ -1,0 +1,21 @@
+{
+  "__metadata": {
+    "version": "1.0",
+    "created": "2025-11-15T13:49:10.367Z",
+    "description": "State tracking for expert metadata validation"
+  },
+  "expert_states": {},
+  "validation_history": [],
+  "team_council": {
+    "file_path": "zenrube/experts/team_council.py",
+    "file_hash": "45f53d186a4dcfc41ef5ee1695291ac2",
+    "version": 2,
+    "last_validated": "2025-11-15T13:53:17.999674",
+    "metadata": {
+      "name": "team_council",
+      "version": 2,
+      "description": "Multi-brain council orchestration expert that coordinates multiple experts to provide comprehensive analysis and solutions.",
+      "author": "vladinc@gmail.com"
+    }
+  }
+}
