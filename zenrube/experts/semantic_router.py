@@ -1,87 +1,110 @@
 import re
-import logging
-from typing import Dict
+import math
+from typing import List, Dict
 
-EXPERT_METADATA = {
-    "name": "semantic_router",
-    "version": "1.0",
-    "description": "Analyzes text to infer intent and route data to the correct Zenrube expert or flow.",
-    "author": "vladinc@gmail.com"
+# Experts available
+EXPERTS = {
+    "systems_architect": [
+        "architecture", "system", "scalability",
+        "design", "blueprint", "refactor",
+        "diagnostic", "root cause", "infrastructure",
+        "performance", "bottleneck"
+    ],
+    "security_analyst": [
+        "security", "vulnerability", "breach", "risk",
+        "attack", "exploit", "penetration", "secure"
+    ],
+    "summarizer": [
+        "summarize", "summary", "condense",
+        "tl;dr", "shorten"
+    ],
+    "pragmatic_engineer": [
+        "implement", "fix", "code", "debug",
+        "practical", "engineer", "solution"
+    ],
+    "publisher": [
+        "write", "publish", "format", "document",
+        "blog", "post", "article", "markdown"
+    ],
+    "autopublisher": [
+        "auto-generate", "auto publish", "automate publishing"
+    ],
+    "data_cleaner": [
+        "clean data", "normalize", "standardize",
+        "preprocess", "sanitize", "fix data"
+    ],
+    "version_manager": [
+        "version", "commit", "history", "changelog",
+        "release", "tag", "semantic versioning"
+    ],
+    "rube_adapter": [
+        "convert", "transform", "adapt", "bridge",
+        "interface", "mapping", "serialize"
+    ]
 }
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+
+# Precompute word vectors for simple cosine similarity (no external API)
+def text_to_vector(text: str) -> Dict[str, int]:
+    words = re.findall(r"\w+", text.lower())
+    freq = {}
+    for w in words:
+        freq[w] = freq.get(w, 0) + 1
+    return freq
+
+
+def cosine_sim(vec1: Dict[str, int], vec2: Dict[str, int]) -> float:
+    common = set(vec1.keys()) & set(vec2.keys())
+    num = sum(vec1[w] * vec2[w] for w in common)
+    den = math.sqrt(sum(v*v for v in vec1.values())) * math.sqrt(sum(v*v for v in vec2.values()))
+    return num / den if den != 0 else 0.0
 
 
 class SemanticRouterExpert:
     """
-    Expert class for analyzing input text, inferring intent, and determining
-    the logical route (target expert or flow) without executing it.
+    Intelligent router that:
+    - Performs keyword matching
+    - Uses local similarity scoring
+    - Only returns valid experts
+    - Supports fallback
     """
 
-    def __init__(self):
-        # Intent detection keywords
-        self.intent_keywords = {
-            "error": ["error", "bug", "failed", "crash", "exception"],
-            "invoice": ["invoice", "bill", "payment", "receipt", "charge"],
-            "meeting": ["meeting", "schedule", "appointment", "call", "conference"],
-            "support": ["help", "support", "assistance", "question", "issue"],
-            "urgent": ["urgent", "emergency", "asap", "critical", "priority"],
+    def run(self, prompt: str) -> dict:
+        prompt_vec = text_to_vector(prompt)
+        best_score = 0
+        best_expert = "general_handler"
+        matched_keywords = []
+
+        # Score against each expert
+        for expert, keywords in EXPERTS.items():
+            kw_text = " ".join(keywords)
+            kw_vec = text_to_vector(kw_text)
+            score = cosine_sim(prompt_vec, kw_vec)
+
+            # Track matches
+            for kw in keywords:
+                if kw in prompt.lower():
+                    matched_keywords.append((expert, kw))
+
+            if score > best_score:
+                best_score = score
+                best_expert = expert
+
+        # Keyword match override
+        if matched_keywords:
+            # highest-frequency expert wins
+            counts = {}
+            for (exp, kw) in matched_keywords:
+                counts[exp] = counts.get(exp, 0) + 1
+            best_expert = max(counts, key=counts.get)
+
+        # Threshold rule
+        if best_score < 0.05 and not matched_keywords:
+            best_expert = "general_handler"
+
+        return {
+            "input": prompt,
+            "route": best_expert,
+            "score": round(best_score, 4),
+            "keyword_hits": matched_keywords
         }
-
-        # Route mappings (static targets)
-        self.route_mappings = {
-            "error": "debug_expert",
-            "invoice": "finance_handler",
-            "meeting": "calendar_flow",
-            "support": "support_agent",
-            "urgent": "priority_handler",
-            "unknown": "general_handler",
-        }
-
-    def run(self, input_data: str) -> Dict[str, str]:
-        """
-        Analyze the input text and return its inferred intent and routing target.
-
-        Args:
-            input_data (str): Plain text input.
-
-        Returns:
-            dict: {
-                "input": original text,
-                "intent": inferred intent,
-                "route": target expert or flow
-            }
-        """
-        if not isinstance(input_data, str):
-            logger.warning("Non-string input received, converting to string.")
-            input_data = str(input_data)
-
-        text_preview = input_data[:50] + ("..." if len(input_data) > 50 else "")
-        logger.info(f"Processing input: {text_preview}")
-
-        intent = self._analyze_intent(input_data)
-        route = self._route_to_target(intent)
-
-        result = {"input": input_data, "intent": intent, "route": route}
-        logger.info(f"Inferred intent='{intent}' → route='{route}'")
-        return result
-
-    def _analyze_intent(self, text: str) -> str:
-        """
-        Infer intent based on simple keyword matching.
-        """
-        text_lower = text.lower()
-        for intent, keywords in self.intent_keywords.items():
-            for keyword in keywords:
-                if re.search(r"\b" + re.escape(keyword) + r"\b", text_lower):
-                    logger.debug(f"Matched intent '{intent}' for keyword '{keyword}'")
-                    return intent
-        return "unknown"
-
-    def _route_to_target(self, intent: str) -> str:
-        """
-        Map an intent to its corresponding routing target.
-        """
-        return self.route_mappings.get(intent, self.route_mappings["unknown"])
