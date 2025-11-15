@@ -35,33 +35,41 @@ class DynamicProfileEngine:
         
         logger.info("DynamicProfileEngine initialized")
     
-    def generate_profile(self, task: str, available_brains: List[str]) -> Dict[str, Any]:
+    def generate_profile(self, task: str, available_brains: Optional[List[str]]) -> Dict[str, Any]:
         """
         Generate a dynamic brain profile for a task.
-        
+
         Args:
             task (str): Task description to generate profile for
-            available_brains (List[str]): List of available brain expert names
-            
+            available_brains (Optional[List[str]]): List of available brain expert names
+
         Returns:
             Dict[str, Any]: Generated profile with brains, scoring, and reasoning
         """
         logger.info(f"Generating profile for task: {task[:100]}...")
-        
+
+        # Handle None available_brains
+        if available_brains is None:
+            return self._create_fallback_profile(task, [])
+
         try:
             # Step 1: Classify the task
             classification = self.classification_engine.classify_task(task)
             logger.info(f"Task classified as: {classification['primary']} (confidence: {classification['confidence']:.2f})")
-            
+
             # Step 2: Generate draft profile
             draft_profile = self._generate_draft_profile(classification, available_brains)
-            
+
+            # Check if we have any brains, if not use fallback
+            if not draft_profile.get("brains"):
+                return self._create_fallback_profile(task, available_brains)
+
             # Step 3: Optimize profile
             optimized_profile = self._optimize_profile(draft_profile, classification)
-            
+
             logger.info(f"Profile generated with {len(optimized_profile['brains'])} brains")
             return optimized_profile
-            
+
         except Exception as e:
             logger.error(f"Profile generation failed: {e}")
             return self._create_fallback_profile(task, available_brains)

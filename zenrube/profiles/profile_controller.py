@@ -12,7 +12,7 @@ from .dynamic_profile_engine import DynamicProfileEngine
 from .classification_engine import ClassificationEngine
 from .compatibility_matrix import CompatibilityMatrix
 from .profile_memory import ProfileMemory
-from .profile_logs import ProfileLogger
+from .profile_logs import ProfileLogs
 from .personality_presets import RoastLevel
 from .personality_engine import PersonalityEngine, SelectionCriteria
 
@@ -28,7 +28,7 @@ class ProfileController:
         self.classification_engine = ClassificationEngine()
         self.compatibility_matrix = CompatibilityMatrix()
         self.profile_memory = ProfileMemory()
-        self.profile_logger = ProfileLogger()
+        self.profile_logger = ProfileLogs()
         
         # Personality system integration
         from .personality_engine import personality_engine
@@ -104,7 +104,7 @@ class ProfileController:
                 return domains
         
         # Use classification engine
-        classification_result = self.classification_engine.classify(request, context)
+        classification_result = self.classification_engine.classify_task(request)
         
         primary_domain = classification_result.get("primary_domain", "general")
         secondary_domain = classification_result.get("secondary_domain", None)
@@ -223,6 +223,248 @@ class ProfileController:
         else:
             # Reset all state would require accessing private attributes
             pass
+
+    def _validate_structure(self, profile: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate profile structure and constraints"""
+        issues = []
+
+        # Check required fields
+        if "brains" not in profile:
+            issues.append("Missing 'brains' field")
+        if "primary_domain" not in profile:
+            issues.append("Missing 'primary_domain' field")
+
+        # Check brain count constraints
+        if "brains" in profile:
+            brain_count = len(profile["brains"])
+            if brain_count < 2:
+                issues.append("Too few brains (minimum 2)")
+            elif brain_count > 5:
+                issues.append("Too many brains (maximum 5)")
+
+        # Check for duplicate brains
+        if "brains" in profile and len(profile["brains"]) != len(set(profile["brains"])):
+            issues.append("Duplicate brains in profile")
+
+        return {
+            "valid": len(issues) == 0,
+            "issues": issues
+        }
+
+    def _perform_dry_run_relevance_test(self, profile: Dict[str, Any], task: str) -> Dict[str, Any]:
+        """Perform dry-run relevance testing"""
+        # Simple mock implementation - in real system would test actual relevance
+        brains = profile.get("brains", [])
+        relevance_scores = {}
+
+        # Mock scoring based on brain names and task keywords
+        for brain in brains:
+            score = 0.5  # Base score
+            if "security" in task.lower() and "security" in brain:
+                score += 0.3
+            if "data" in task.lower() and "data" in brain:
+                score += 0.2
+            relevance_scores[brain] = min(1.0, score)
+
+        # Remove low-relevance brains
+        removed_brains = [brain for brain, score in relevance_scores.items() if score < 0.4]
+
+        return {
+            "relevance_scores": relevance_scores,
+            "removed_brains": removed_brains,
+            "test_completed": True
+        }
+
+    def _auto_repair_profile(self, profile: Dict[str, Any], task: str, relevance_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Auto-repair profile by adding missing brains or adjusting composition"""
+        repaired_profile = profile.copy()
+        brains = repaired_profile.get("brains", [])
+        domain = repaired_profile.get("primary_domain", "general")
+
+        # Remove low-relevance brains first
+        removed_brains = relevance_result.get("removed_brains", [])
+        brains = [brain for brain in brains if brain not in removed_brains]
+
+        # Add default brains based on domain to ensure good coverage
+        default_brains = {
+            "cybersec": ["security_analyst", "systems_architect"],
+            "creative": ["pattern_brain", "llm_connector"],
+            "general": ["summarizer", "data_cleaner"]
+        }
+        additional_brains = default_brains.get(domain, ["summarizer", "data_cleaner"])
+        for brain in additional_brains:
+            if brain not in brains and len(brains) < 5:  # Max 5
+                brains.append(brain)
+
+        # Ensure minimum brains
+        if len(brains) < 2:
+            if "llm_connector" not in brains:
+                brains.append("llm_connector")
+
+        repaired_profile["brains"] = brains
+        repaired_profile["auto_repaired"] = True
+
+        return repaired_profile
+
+    def _calculate_profile_scores(self, profile: Dict[str, Any], task: str, relevance_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate comprehensive profile scores"""
+        brains = profile.get("brains", [])
+        domain = profile.get("primary_domain", "general")
+        relevance_scores = relevance_result.get("relevance_scores", {})
+
+        # Domain relevance score
+        domain_relevance = 0.8  # Mock - would check domain alignment
+
+        # Compatibility score
+        compatibility = 0.7  # Mock - would check brain compatibility
+
+        # Dry-run relevance score
+        dry_run_relevance = sum(relevance_scores.values()) / len(relevance_scores) if relevance_scores else 0.5
+
+        # Noise potential (inverse of relevance)
+        noise_potential = 1.0 - dry_run_relevance
+
+        # Overall score
+        overall_score = (domain_relevance * 0.3 + compatibility * 0.3 + dry_run_relevance * 0.4)
+
+        return {
+            "domain_relevance": domain_relevance,
+            "compatibility": compatibility,
+            "dry_run_relevance": dry_run_relevance,
+            "noise_potential": noise_potential,
+            "overall_score": overall_score
+        }
+
+    def _generate_human_summary(self, profile: Dict[str, Any], scoring_result: Dict[str, Any], relevance_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate human-readable profile summary"""
+        brains = profile.get("brains", [])
+        domain = profile.get("primary_domain", "general")
+        overall_score = scoring_result.get("overall_score", 0.5)
+        removed_brains = relevance_result.get("removed_brains", [])
+
+        # Determine confidence level
+        if overall_score >= 0.8:
+            confidence = "high"
+        elif overall_score >= 0.6:
+            confidence = "medium"
+        else:
+            confidence = "low"
+
+        # Generate explanations
+        why_these_brains = f"Selected {len(brains)} brains optimized for {domain} domain tasks"
+        dropped_brains = f"Removed {len(removed_brains)} low-relevance brains" if removed_brains else "No brains removed"
+
+        return {
+            "why_these_brains": why_these_brains,
+            "dropped_brains": dropped_brains,
+            "final_domain": domain,
+            "confidence_level": confidence
+        }
+
+    def _perform_coherence_fuse(self, profile: Dict[str, Any], task: str, summary: Dict[str, Any]) -> Dict[str, Any]:
+        """Perform coherence checking"""
+        brains = profile.get("brains", [])
+        domain = profile.get("primary_domain", "general")
+
+        # Simple coherence check
+        coherent = len(brains) >= 2 and len(brains) <= 5
+
+        explanation = "Profile meets basic coherence requirements" if coherent else "Profile fails coherence check"
+        confidence = "high" if coherent else "low"
+
+        return {
+            "coherent": coherent,
+            "explanation": explanation,
+            "confidence": confidence
+        }
+
+    def _determine_roast_level(self, profile: Dict[str, Any], task: str) -> int:
+        """Determine appropriate roast level for profile"""
+        domain = profile.get("primary_domain", "general")
+
+        # Domain-based defaults
+        domain_defaults = {
+            "cybersec": 1,
+            "creative": 2,
+            "coding": 1,
+            "hardware": 1,
+            "feelprint": 0,
+            "general": 1
+        }
+
+        return domain_defaults.get(domain, 1)
+
+    def validate_and_refine_profile(self, profile: Dict[str, Any], task: str) -> Dict[str, Any]:
+        """Complete profile validation and refinement pipeline"""
+        # Structure validation
+        structure_valid = self._validate_structure(profile)
+
+        if not structure_valid["valid"]:
+            return {
+                "status": "failed",
+                "validation_passed": False,
+                "issues": structure_valid["issues"]
+            }
+
+        # Dry-run relevance test
+        relevance_result = self._perform_dry_run_relevance_test(profile, task)
+
+        # Auto-repair if needed
+        if len(profile.get("brains", [])) < 2 or relevance_result.get("removed_brains"):
+            profile = self._auto_repair_profile(profile, task, relevance_result)
+
+        # Calculate scores
+        scoring_result = self._calculate_profile_scores(profile, task, relevance_result)
+
+        # Generate summary
+        summary = self._generate_human_summary(profile, scoring_result, relevance_result)
+
+        # Determine roast level
+        roast_level = self._determine_roast_level(profile, task)
+
+        # Coherence check
+        coherence = self._perform_coherence_fuse(profile, task, summary)
+
+        return {
+            "brains": profile.get("brains", []),
+            "primary_domain": profile.get("primary_domain", "general"),
+            "validation_passed": True,
+            "scoring": scoring_result,
+            "relevance_test": relevance_result,
+            "roast_level": roast_level,
+            "summary": summary,
+            "coherence": coherence,
+            "auto_repaired": profile.get("auto_repaired", False)
+        }
+
+
+class RoastToneGovernor:
+    """Governor for roast tone levels based on domain and context"""
+
+    def __init__(self):
+        self.domain_defaults = {
+            "cybersec": 1,
+            "creative": 2,
+            "coding": 1,
+            "hardware": 1,
+            "feelprint": 0,
+            "general": 1
+        }
+
+    def get_roast_level(self, domain: str, context: Optional[Dict[str, Any]] = None) -> int:
+        """Get appropriate roast level for domain"""
+        base_level = self.domain_defaults.get(domain, 1)
+
+        # Adjust based on context
+        if context:
+            if context.get("sensitive", False):
+                return 0
+            if context.get("creative_task", False):
+                return min(base_level + 1, 3)
+            if context.get("critical_security", False):
+                return min(base_level + 1, 3)
+
+        return base_level
 
 
 # Global profile controller instance

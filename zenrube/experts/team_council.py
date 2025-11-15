@@ -10,6 +10,7 @@ Author: Kilo Code
 import logging
 from typing import Dict, Any, List, Optional
 import json
+import asyncio
 
 EXPERT_METADATA = {
     "name": "team_council",
@@ -23,7 +24,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class TeamCouncilExpert:
+class TeamCouncil:
     """
     Team Council Expert that acts as a Team Lead/controller for multi-brain orchestration.
     
@@ -34,19 +35,17 @@ class TeamCouncilExpert:
     4. Synthesize final integrated solutions
     """
     
-    def __init__(self):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """Initialize the Team Council Expert."""
-        logger.info("TeamCouncilExpert initialized")
-        
-        # Import orchestration components
+        logger.info("TeamCouncil initialized")
+
+        # Import config loader
         try:
-            from zenrube.orchestration.council_runner import CouncilRunner
             from zenrube.config.team_council_loader import get_team_council_config
-            
-            self.council_runner = CouncilRunner()
+
             self.config_loader = get_team_council_config()
-            logger.info("Team Council Expert components loaded successfully")
-            
+            logger.info("Team Council config loaded successfully")
+
         except ImportError as e:
             logger.error(f"Failed to import required components: {e}")
             raise
@@ -83,7 +82,21 @@ class TeamCouncilExpert:
             logger.info(f"Executing council with {len(enabled_brains)} brains: {enabled_brains}")
             
             # Run the complete council orchestration
-            result = self.council_runner.run_council(task, enabled_brains, validated_options)
+            from zenrube.orchestration.council_runner import council_runner
+            from zenrube.profiles.personality_presets import RoastLevel
+
+            context = {
+                "enabled_brains": enabled_brains,
+                **validated_options
+            }
+            result = asyncio.run(council_runner.run_council(
+                query=task,
+                context=context,
+                user_profile=None,
+                roast_level=RoastLevel.MODERATE,
+                max_iterations=validated_options.get("max_rounds", 1),
+                timeout=None
+            ))
             
             # Convert result to JSON string
             response_json = json.dumps(result, indent=2, ensure_ascii=False)

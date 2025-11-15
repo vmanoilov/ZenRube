@@ -180,7 +180,10 @@ class InvalidExpert:
         
         # Should remove one of the incompatible pair
         self.assertEqual(len(filtered), 3)
-        self.assertNotIn("autopublisher", filtered) or self.assertNotIn("publisher", filtered)
+        # Check that exactly one of the incompatible pair is removed
+        autopublisher_in = "autopublisher" in filtered
+        publisher_in = "publisher" in filtered
+        self.assertTrue((autopublisher_in and not publisher_in) or (not autopublisher_in and publisher_in))
     
     # ===== PROFILE ENGINE TESTS =====
     

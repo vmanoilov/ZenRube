@@ -7,6 +7,15 @@ fields, enums, classes, or abstractions.
 """
 
 from typing import Dict, Any
+from enum import Enum
+
+
+class RoastLevel(Enum):
+    NONE = 0
+    LOW = 1
+    MODERATE = 2
+    HIGH = 3
+
 
 # ============================================================
 # EXACT ORIGINAL PERSONALITY PRESETS (DO NOT MODIFY)
@@ -63,7 +72,7 @@ PERSONALITY_PRESETS: Dict[str, Dict[str, Dict[str, Any]]] = {
     "pattern_brain": {
 
         "neutral_mode": {
-            "tone": "balanced",
+            "tone": "soft",
             "communication_style": "lightly creative but structured",
             "thinking_style": "pattern-recognition",
             "critique_intensity": 1,

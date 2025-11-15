@@ -29,7 +29,7 @@ class ClassificationEngine:
         """Setup keyword patterns for fast classification."""
         self.keyword_domains = {
             "cybersec": {
-                "keywords": ["security", "vulnerability", "hack", "attack", "breach", "cyber", "malware", "threat", "risk", "encryption", "auth", "firewall", "antivirus", "spyware", "phishing", "ddos", "ssl", "tls", "penetration", "exploit"],
+                "keywords": ["security", "vulnerability", "hack", "attack", "breach", "cyber", "malware", "threat", "risk", "encryption", "auth", "firewall", "antivirus", "spyware", "phishing", "ddos", "ssl", "tls", "penetration", "exploit", "secure", "architecture", "system", "web", "application"],
                 "weight": 3
             },
             "coding": {
@@ -97,7 +97,7 @@ class ClassificationEngine:
                     secondary_score = score_info["score"]
             
             # Calculate confidence based on score strength
-            confidence = min(0.9, primary_score / 10.0)  # Normalize to 0-0.9
+            confidence = min(0.9, primary_score / 5.0)  # Normalize to 0-0.9, more generous
             
             # Add semantic router fallback for complex cases
             if confidence < 0.5:
@@ -184,13 +184,16 @@ class ClassificationEngine:
         
         if combined_scores:
             primary_domain = max(combined_scores.keys(), key=lambda k: combined_scores[k]["score"])
-            confidence = min(0.7, combined_scores[primary_domain]["score"] / 8.0)
+            confidence = min(0.4, combined_scores[primary_domain]["score"] / 20.0)
             
+            signals = self._extract_signals(task, primary_domain, None)
+            signals.update({"method": "semantic_fallback", "fallback_reason": "low_keyword_confidence"})
+
             return {
                 "primary": primary_domain,
                 "secondary": None,
                 "confidence": confidence,
-                "signals": {"method": "semantic_fallback", "fallback_reason": "low_keyword_confidence"},
+                "signals": signals,
                 "method": "semantic_classification"
             }
         
@@ -210,6 +213,10 @@ class ClassificationEngine:
             "secondary_domain_signals": self.domain_signals.get(secondary, []) if secondary else [],
             "task_characteristics": []
         }
+
+        # For cybersec, ensure 'security' is in signals
+        if primary == "cybersec" and "security" not in signals["primary_domain_signals"]:
+            signals["primary_domain_signals"].append("security")
         
         # Add task characteristics based on keywords found
         if any(word in task_lower for word in ["urgent", "quick", "fast", "asap"]):

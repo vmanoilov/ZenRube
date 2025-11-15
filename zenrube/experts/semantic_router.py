@@ -56,7 +56,31 @@ EXPERTS = {
         "llm", "openai", "claude", "gemini", "qwen", "grok",
         "external model", "ai model", "chatgpt", "anthropic",
         "llama", "provider", "api call", "remote model"
+    ],
+    "finance_handler": [
+        "invoice", "bill", "payment", "finance", "money", "cost", "budget"
+    ],
+    "debug_expert": [
+        "error", "bug", "debug", "fix", "issue", "problem", "crash"
+    ],
+    "support_agent": [
+        "help", "support", "assist", "question", "guidance"
+    ],
+    "calendar_flow": [
+        "meeting", "schedule", "calendar", "appointment", "time"
+    ],
+    "priority_handler": [
+        "urgent", "emergency", "critical", "asap", "priority"
     ]
+}
+
+# Intent patterns
+INTENT_PATTERNS = {
+    "invoice": ["invoice", "bill", "payment", "process"],
+    "error": ["error", "bug", "issue", "problem", "fail"],
+    "meeting": ["meeting", "schedule", "calendar", "appointment"],
+    "support": ["help", "support", "assist", "question"],
+    "urgent": ["urgent", "emergency", "critical", "asap"]
 }
 
 
@@ -91,6 +115,16 @@ class SemanticRouterExpert:
         best_expert = "general_handler"
         matched_keywords = []
 
+        # Determine intent
+        intent = "unknown"
+        for intent_type, patterns in INTENT_PATTERNS.items():
+            for pattern in patterns:
+                if pattern in prompt.lower():
+                    intent = intent_type
+                    break
+            if intent != "unknown":
+                break
+
         # Score against each expert
         for expert, keywords in EXPERTS.items():
             kw_text = " ".join(keywords)
@@ -120,6 +154,7 @@ class SemanticRouterExpert:
 
         return {
             "input": prompt,
+            "intent": intent,
             "route": best_expert,
             "score": round(best_score, 4),
             "keyword_hits": matched_keywords

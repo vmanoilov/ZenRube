@@ -145,7 +145,7 @@ class TestPersonalitySafety(unittest.TestCase):
         self.sample_personalities = {
             "security_analyst": {
                 "tone": "dry, precise",
-                "allowed_roast": 1
+                "allowed_roast": 2
             },
             "pattern_brain": {
                 "tone": "playful, colorful",

@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, Any
 
 # Test imports
-from zenrube.experts.team_council import TeamCouncilExpert
+from zenrube.experts.team_council import TeamCouncil
 from zenrube.orchestration.council_runner import CouncilRunner, BrainStatus, BrainOutput, CritiqueResult, SynthesisResult
 from zenrube.config.team_council_loader import TeamCouncilConfigLoader
 
@@ -312,18 +312,17 @@ RATIONALE: We chose approach A because it's more scalable, rejected approach B d
         assert len(result.discarded_ideas) == 1
 
 
-class TestTeamCouncilExpert:
+class TestTeamCouncil:
     """Test cases for TeamCouncilExpert."""
     
     def setup_method(self):
         """Setup for each test method."""
-        with patch('zenrube.experts.team_council.CouncilRunner') as mock_runner, \
-             patch('zenrube.experts.team_council.get_team_council_config') as mock_config:
-            self.mock_runner = mock_runner
+        with patch('zenrube.config.team_council_loader.get_team_council_config') as mock_config, \
+             patch('zenrube.orchestration.council_runner.council_runner') as mock_council_runner:
             self.mock_config = mock_config
-            self.expert = TeamCouncilExpert()
+            self.mock_council_runner = mock_council_runner
+            self.expert = TeamCouncil()
             # Make sure we have the mocked objects available
-            self.expert.council_runner = self.mock_runner.return_value
             self.expert.config_loader = self.mock_config.return_value
     
     def test_parse_input_data_json(self):
@@ -427,32 +426,34 @@ class TestTeamCouncilExpert:
         assert validated["style"] == "default"
     
     @patch('zenrube.experts.team_council.json.dumps')
-    def test_run_success(self, mock_json_dumps):
+    @patch.object(TeamCouncil, '_parse_input_data')
+    def test_run_success(self, mock_parse, mock_json_dumps):
         """Test successful expert execution."""
         # Setup mocks
-        self.expert._parse_input_data.return_value = ("Test task", {})
+        mock_parse.return_value = ("Test task", {})
         self.expert.config_loader.get_enabled_brains.return_value = ["brain1", "brain2"]
-        self.expert.council_runner.run_council.return_value = {
+        self.mock_council_runner.run_council.return_value = {
             "task": "Test task",
             "brains_used": [],
             "critique": {"status": "ok"},
             "final_answer": {"summary": "Test summary"}
         }
         mock_json_dumps.return_value = '{"result": "test"}'
-        
+
         result = self.expert.run("Test input")
-        
+
         assert result == '{"result": "test"}'
-        self.expert._parse_input_data.assert_called_once_with("Test input")
-        self.expert.council_runner.run_council.assert_called_once()
+        mock_parse.assert_called_once_with("Test input")
+        self.mock_council_runner.run_council.assert_called_once()
     
-    def test_run_failure(self):
+    @patch.object(TeamCouncil, '_parse_input_data')
+    def test_run_failure(self, mock_parse):
         """Test expert execution failure."""
         # Setup mocks to raise exception
-        self.expert._parse_input_data.side_effect = Exception("Parse error")
-        
+        mock_parse.side_effect = Exception("Parse error")
+
         result = self.expert.run("Test input")
-        
+
         # Should return error JSON
         result_dict = json.loads(result)
         assert result_dict["final_answer"]["summary"] == "Team Council execution failed"
@@ -519,7 +520,7 @@ class TestIntegration:
         mock_registry_class.return_value = mock_registry
         
         # Create expert and run
-        expert = TeamCouncilExpert()
+        expert = TeamCouncil()
         
         # Test with JSON input
         input_data = json.dumps({
