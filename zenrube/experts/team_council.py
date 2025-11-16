@@ -14,7 +14,7 @@ import asyncio
 
 EXPERT_METADATA = {
     "name": "team_council",
-    "version": 3,
+    "version": "3",
     "description": "Multi-brain council orchestration expert with Dynamic Personality System integration that coordinates multiple experts to provide comprehensive analysis and solutions.",
     "author": "vladinc@gmail.com"
 }
