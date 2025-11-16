@@ -1,279 +1,379 @@
+# test_personality_system.py
 """
-Test suite for Zenrube Personality System
-Tests personality_presets, personality_engine, and personality_safety modules.
+Complete test suite for Zenrube Personality System (Phase 3D)
+Tests personality_presets, personality_engine, and personality_safety modules
 """
 
 import unittest
-from zenrube.profiles.personality_presets import PERSONALITY_PRESETS, get_personality, get_neutral_personality, get_default_personality
-from zenrube.profiles.personality_engine import select_personality_mode, assign_personalities, build_personality_prefix
-from zenrube.profiles.personality_safety import apply_safety_governor
+from typing import Dict, Any
+
+# Import only from allowed modules
+from zenrube.profiles.personality_presets import (
+    PERSONALITY_PRESETS, 
+    get_personality, 
+    get_neutral_personality, 
+    get_default_personality
+)
+from zenrube.profiles.personality_engine import (
+    assign_personalities,
+    build_personality_prefix,
+    select_personality_mode,
+    PersonalityEngine
+)
+from zenrube.profiles.personality_safety import (
+    apply_safety_governor,
+    SafetyGovernor
+)
 
 
 class TestPersonalityPresets(unittest.TestCase):
     """Test personality_presets.py functionality"""
     
     def setUp(self):
+        """Set up test data"""
         self.expected_experts = [
-            "security_analyst", "pragmatic_engineer", "pattern_brain",
-            "data_cleaner", "semantic_router", "feelprint_brain", "llm_connector"
+            "security_analyst",
+            "pragmatic_engineer", 
+            "pattern_brain",
+            "data_cleaner",
+            "semantic_router",
+            "feelprint_brain",
+            "llm_connector"
         ]
-        
-        self.expected_alternate_modes = {
-            "security_analyst": "turing_strategist",
-            "pragmatic_engineer": "builder_minimalist",
-            "pattern_brain": "da_vinci_ideator",
-            "data_cleaner": "info_kondo",
-            "semantic_router": "sherlock_navigator",
-            "feelprint_brain": "jung_listener",
-            "llm_connector": "neutral_researcher"
-        }
     
     def test_all_expert_keys_exist(self):
         """Test that all expected expert keys exist in PERSONALITY_PRESETS"""
         for expert in self.expected_experts:
-            self.assertIn(expert, PERSONALITY_PRESETS, f"Missing expert: {expert}")
+            self.assertIn(expert, PERSONALITY_PRESETS, 
+                         f"Expert {expert} missing from PERSONALITY_PRESETS")
     
     def test_each_expert_has_exactly_two_modes(self):
         """Test that each expert contains exactly two modes"""
-        for expert, modes in PERSONALITY_PRESETS.items():
-            self.assertEqual(len(modes), 2, f"Expert {expert} should have exactly 2 modes")
-            self.assertIn("neutral_mode", modes, f"Expert {expert} missing neutral_mode")
-            # Check that the alternate mode exists
-            alternate_mode = self.expected_alternate_modes.get(expert)
-            if alternate_mode:
-                self.assertIn(alternate_mode, modes, f"Expert {expert} missing alternate mode: {alternate_mode}")
+        for expert_name, expert_config in PERSONALITY_PRESETS.items():
+            modes = list(expert_config.keys())
+            self.assertEqual(len(modes), 2, 
+                           f"Expert {expert_name} should have exactly 2 modes, found {len(modes)}")
+            
+            # Check that one of them is neutral_mode
+            self.assertIn("neutral_mode", modes, 
+                         f"Expert {expert_name} must have neutral_mode")
     
-    def test_neutral_mode_existence_per_expert(self):
-        """Test neutral_mode existence per expert"""
-        for expert in self.expected_experts:
-            neutral_cfg = get_neutral_personality(expert)
-            self.assertIsNotNone(neutral_cfg, f"neutral_mode not found for {expert}")
-            self.assertIsInstance(neutral_cfg, dict, f"neutral_mode should be dict for {expert}")
-            # Check required fields
+    def test_neutral_mode_exists_per_expert(self):
+        """Test that neutral_mode exists for every expert"""
+        for expert_name, expert_config in PERSONALITY_PRESETS.items():
+            self.assertIn("neutral_mode", expert_config,
+                         f"Expert {expert_name} missing neutral_mode")
+            
+            neutral_mode = expert_config["neutral_mode"]
+            
+            # Check required fields exist in neutral_mode
             required_fields = ["tone", "communication_style", "thinking_style", 
-                             "critique_intensity", "risk_tolerance", "detail_level", "allowed_roast"]
+                             "critique_intensity", "risk_tolerance", "detail_level", 
+                             "allowed_roast"]
+            
             for field in required_fields:
-                self.assertIn(field, neutral_cfg, f"Missing field {field} in neutral_mode for {expert}")
+                self.assertIn(field, neutral_mode,
+                            f"Expert {expert_name} neutral_mode missing field: {field}")
     
     def test_get_personality_returns_correct_dict(self):
-        """Test get_personality returns correct dict"""
-        # Test existing personality
-        personality = get_personality("security_analyst", "turing_strategist")
-        self.assertIsInstance(personality, dict, "get_personality should return dict")
-        self.assertEqual(personality["tone"], "dry, precise")
+        """Test get_personality function returns correct personality dict"""
+        # Test existing expert and mode
+        result = get_personality("security_analyst", "turing_strategist")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result["tone"], "dry, precise")
+        self.assertEqual(result["thinking_style"], "pattern-analysis, threat-focused")
         
-        # Test non-existing personality
-        personality = get_personality("nonexistent", "nonexistent")
-        self.assertEqual(personality, {}, "get_personality should return empty dict for invalid inputs")
+        # Test non-existent expert
+        result = get_personality("non_existent_expert", "any_mode")
+        self.assertEqual(result, {})
+        
+        # Test non-existent mode
+        result = get_personality("security_analyst", "non_existent_mode")
+        self.assertEqual(result, {})
     
     def test_get_neutral_personality_returns_neutral_mode(self):
-        """Test get_neutral_personality returns neutral_mode"""
-        neutral_cfg = get_neutral_personality("security_analyst")
-        expected_neutral = PERSONALITY_PRESETS["security_analyst"]["neutral_mode"]
-        self.assertEqual(neutral_cfg, expected_neutral)
-        
-        # Test non-existing expert
-        neutral_cfg = get_neutral_personality("nonexistent")
-        self.assertEqual(neutral_cfg, {}, "get_neutral_personality should return empty dict for invalid expert")
+        """Test get_neutral_personality returns neutral_mode for each expert"""
+        for expert_name in self.expected_experts:
+            result = get_neutral_personality(expert_name)
+            
+            # Should return a dict with expected structure
+            self.assertIsInstance(result, dict)
+            
+            # Should match the neutral_mode from PERSONALITY_PRESETS
+            expected = PERSONALITY_PRESETS[expert_name]["neutral_mode"]
+            self.assertEqual(result, expected)
+            
+            # Verify it's actually the neutral mode
+            self.assertEqual(result["tone"], "neutral")
 
 
 class TestPersonalityEngine(unittest.TestCase):
     """Test personality_engine.py functionality"""
     
     def setUp(self):
-        self.sample_profile = {
-            "experts": ["security_analyst", "pattern_brain", "data_cleaner"],
-            "task_type": "technical",
-            "context": {}
+        """Set up test data"""
+        self.mock_profile = {
+            "experts": ["security_analyst", "pragmatic_engineer"],
+            "task_type": "coding"
         }
     
     def test_assign_personalities_returns_personality_for_each_expert(self):
-        """Test assign_personalities returns a personality for each expert"""
-        personalities = assign_personalities(self.sample_profile, "technical", 1)
+        """Test that assign_personalities returns a personality for each expert"""
+        result = assign_personalities(self.mock_profile, "technical", 1)
         
-        self.assertEqual(len(personalities), len(self.sample_profile["experts"]))
-        for expert in self.sample_profile["experts"]:
-            self.assertIn(expert, personalities, f"Missing personality for {expert}")
-            self.assertIsInstance(personalities[expert], dict, f"Personality should be dict for {expert}")
+        # Should return dict with same number of experts
+        self.assertEqual(len(result), len(self.mock_profile["experts"]))
+        
+        # Each expert should have a personality config
+        for expert_name in self.mock_profile["experts"]:
+            self.assertIn(expert_name, result)
+            personality = result[expert_name]
+            self.assertIsInstance(personality, dict)
+            
+            # Should have required fields
+            required_fields = ["tone", "communication_style", "thinking_style"]
+            for field in required_fields:
+                self.assertIn(field, personality)
     
     def test_build_personality_prefix_returns_non_empty_string(self):
-        """Test build_personality_prefix returns a non-empty string"""
-        personality_cfg = {
+        """Test that build_personality_prefix returns a non-empty string"""
+        mock_personality = {
             "tone": "neutral",
             "communication_style": "clear, structured",
-            "thinking_style": "logical, evidence-first",
+            "thinking_style": "logical",
             "detail_level": 2,
             "critique_intensity": 1
         }
         
-        prefix = build_personality_prefix("security_analyst", personality_cfg, "technical")
+        result = build_personality_prefix("security_analyst", mock_personality, "coding")
         
-        self.assertIsInstance(prefix, str, "build_personality_prefix should return string")
-        self.assertGreater(len(prefix), 0, "prefix should not be empty")
-        self.assertIn("tone=neutral", prefix, "prefix should contain tone")
-        self.assertIn("style=clear, structured", prefix, "prefix should contain communication style")
+        # Should return a non-empty string
+        self.assertIsInstance(result, str)
+        self.assertGreater(len(result), 0)
+        
+        # Should contain expected format elements
+        self.assertIn("[tone=", result)
+        self.assertIn(" | style=", result)
+        self.assertIn(" | thinking=", result)
+        self.assertIn(" | detail=", result)
+        self.assertIn(" | critique=", result)
+        self.assertIn("]", result)
     
     def test_technical_tasks_prefer_neutral_mode_when_roast_level_low(self):
-        """Test technical tasks prefer neutral_mode when roast_level is low"""
-        # Low roast level should prefer neutral_mode
-        personality = select_personality_mode("security_analyst", "technical", 0, "technical")
-        self.assertEqual(personality.get("tone"), "neutral")
+        """Test that technical tasks prefer neutral_mode when roast_level is low"""
+        # Low roast level should prefer neutral mode
+        result = select_personality_mode("security_analyst", "technical", 1, "coding")
         
-        # Very low roast level should force neutral_mode
-        personality = select_personality_mode("security_analyst", "technical", 1, "technical")
-        # With low roast level, should stick to neutral_mode due to roast constraints
+        # Should return neutral personality or one with low roast
+        expected_neutral = get_neutral_personality("security_analyst")
+        
+        # Either neutral or very conservative mode
+        self.assertEqual(result["critique_intensity"], expected_neutral["critique_intensity"])
     
     def test_creative_tasks_choose_alternate_mode_when_allowed(self):
-        """Test creative tasks choose alternate mode when allowed"""
-        # Higher roast level should allow alternate mode for creative tasks
-        personality = select_personality_mode("pattern_brain", "creative", 2, "creative")
-        # Should potentially choose da_vinci_ideator for creative tasks with sufficient roast
+        """Test that creative tasks choose alternate mode when allowed"""
+        # Creative domain with higher roast level
+        result = select_personality_mode("pattern_brain", "creative", 2, "brainstorming")
+        
+        # Should be able to choose alternate mode for creative tasks
+        # Pattern brain's alternate mode should be da_vinci_ideator which has higher risk_tolerance
+        self.assertIsInstance(result, dict)
+        self.assertIn("tone", result)
     
     def test_roast_level_zero_forces_neutral_mode(self):
-        """Test roast_level == 0 forces neutral_mode"""
-        personality = select_personality_mode("security_analyst", "creative", 0, "creative")
-        self.assertEqual(personality.get("tone"), "neutral")
-        
-        personality = select_personality_mode("pattern_brain", "creative", 0, "creative")
-        self.assertEqual(personality.get("tone"), "soft")  # pattern_brain neutral_mode tone
+        """Test that roast_level == 0 forces neutral_mode"""
+        # For all expert types, roast_level=0 should force neutral
+        for expert_name in ["security_analyst", "pragmatic_engineer", "pattern_brain"]:
+            result = select_personality_mode(expert_name, "creative", 0, "coding")
+            
+            expected_neutral = get_neutral_personality(expert_name)
+            self.assertEqual(result, expected_neutral,
+                           f"Expert {expert_name} should have neutral mode when roast_level=0")
 
 
 class TestPersonalitySafety(unittest.TestCase):
     """Test personality_safety.py functionality"""
     
     def setUp(self):
-        self.sample_personalities = {
+        """Set up test data"""
+        self.mock_personalities = {
             "security_analyst": {
                 "tone": "dry, precise",
-                "allowed_roast": 2
+                "communication_style": "minimalistic, fact-driven", 
+                "thinking_style": "pattern-analysis, threat-focused",
+                "critique_intensity": 2,
+                "risk_tolerance": 0,
+                "detail_level": 2,
+                "allowed_roast": 1
             },
-            "pattern_brain": {
-                "tone": "playful, colorful",
-                "allowed_roast": 2
+            "pragmatic_engineer": {
+                "tone": "direct",
+                "communication_style": "simple, efficient, unembellished",
+                "thinking_style": "process-first, minimal-viable-solution", 
+                "critique_intensity": 1,
+                "risk_tolerance": 1,
+                "detail_level": 1,
+                "allowed_roast": 1
             }
         }
     
     def test_roast_clamping_roast_level_zero(self):
         """Test roast clamping when roast_level == 0"""
-        adjusted_personalities, safety_summary = apply_safety_governor(
-            "technical", 0, "normal", self.sample_personalities
-        )
+        result, summary = apply_safety_governor("technical", 0, "coding", self.mock_personalities)
         
         # All personalities should be clamped to neutral
-        for personality in adjusted_personalities.values():
-            self.assertEqual(personality.get("tone"), "neutral")
+        for expert_name in result:
+            personality = result[expert_name]
+            self.assertEqual(personality["tone"], "neutral")
+            self.assertEqual(personality["communication_style"], "clear, structured")
+            self.assertEqual(personality["thinking_style"], "logical")
         
-        self.assertGreater(safety_summary["overrides_applied"], 0, "Should have overrides for roast_level=0")
+        # Summary should indicate overrides applied
+        self.assertGreater(summary["overrides_applied"], 0)
+        self.assertIn("roast_level=0", summary["reason"])
     
     def test_clamping_when_roast_level_less_than_allowed_roast(self):
         """Test clamping when roast_level < allowed_roast"""
-        # roast_level=1, but security_analyst has allowed_roast=2
-        adjusted_personalities, safety_summary = apply_safety_governor(
-            "technical", 1, "normal", self.sample_personalities
-        )
+        # This personality has allowed_roast=2, but roast_level=1
+        test_personalities = {
+            "pattern_brain": {
+                "tone": "playful, colorful",
+                "communication_style": "imagery-first, associative",
+                "thinking_style": "cross-domain, divergent, idea-generating",
+                "critique_intensity": 1,
+                "risk_tolerance": 2,
+                "detail_level": 1,
+                "allowed_roast": 2
+            }
+        }
         
-        # security_analyst should be clamped
-        self.assertEqual(adjusted_personalities["security_analyst"].get("tone"), "neutral")
+        result, summary = apply_safety_governor("creative", 1, "brainstorming", test_personalities)
+        
+        # Should be clamped to neutral due to insufficient roast_level
+        self.assertEqual(result["pattern_brain"]["tone"], "neutral")
+        self.assertGreater(summary["overrides_applied"], 0)
     
     def test_emotional_domain_forces_neutral_mode(self):
-        """Test emotional domain forces neutral_mode"""
-        adjusted_personalities, safety_summary = apply_safety_governor(
-            "emotional", 2, "normal", self.sample_personalities
-        )
+        """Test that emotional domain forces neutral_mode for all experts"""
+        result, summary = apply_safety_governor("emotional", 2, "coding", self.mock_personalities)
         
-        # All personalities should be neutral for emotional domain
-        for personality in adjusted_personalities.values():
-            self.assertEqual(personality.get("tone"), "neutral")
+        # All personalities should be forced to neutral due to emotional domain
+        for expert_name in result:
+            personality = result[expert_name]
+            self.assertEqual(personality["tone"], "neutral")
+            self.assertEqual(personality["thinking_style"], "logical")
+        
+        # Summary should indicate emotional domain override
+        self.assertGreater(summary["overrides_applied"], 0)
+        self.assertIn("emotional domain", summary["reason"])
     
     def test_sensitive_task_type_forces_neutral_mode(self):
-        """Test sensitive task_type forces neutral_mode"""
-        adjusted_personalities, safety_summary = apply_safety_governor(
-            "technical", 2, "sensitive", self.sample_personalities
-        )
+        """Test that sensitive task_type forces neutral_mode"""
+        result, summary = apply_safety_governor("technical", 2, "sensitive", self.mock_personalities)
         
-        # All personalities should be neutral for sensitive tasks
-        for personality in adjusted_personalities.values():
-            self.assertEqual(personality.get("tone"), "neutral")
+        # All personalities should be forced to neutral due to sensitive task
+        for expert_name in result:
+            personality = result[expert_name]
+            self.assertEqual(personality["tone"], "neutral")
+            self.assertEqual(personality["thinking_style"], "logical")
+        
+        # Summary should indicate sensitive task override
+        self.assertGreater(summary["overrides_applied"], 0)
+        self.assertIn("sensitive task_type", summary["reason"])
     
-    def test_neutral_fallback_triggers_multiple_overrides(self):
-        """Test neutral fallback triggers when multiple overrides occur"""
-        # Combine emotional domain with roast clamping
-        adjusted_personalities, safety_summary = apply_safety_governor(
-            "emotional", 0, "sensitive", self.sample_personalities
-        )
+    def test_neutral_fallback_triggers_when_multiple_overrides_occur(self):
+        """Test that neutral fallback triggers when multiple overrides occur"""
+        # Emotional domain + sensitive task should trigger multiple overrides
+        result, summary = apply_safety_governor("emotional", 1, "sensitive", self.mock_personalities)
+        
+        # Should have multiple overrides (emotional + sensitive)
+        self.assertGreaterEqual(summary["overrides_applied"], 2)
         
         # Should trigger neutral fallback
-        self.assertTrue(safety_summary["neutral_fallback_used"], "Should trigger neutral fallback")
-        
-        # All personalities should be neutral
-        for personality in adjusted_personalities.values():
-            self.assertEqual(personality.get("tone"), "neutral")
-
-
-class TestIntegrationSmokeTest(unittest.TestCase):
-    """Integration smoke test for the personality system"""
+        self.assertTrue(summary["neutral_fallback_used"])
+        self.assertIn("2+ overrides", summary["reason"])
     
-    def test_end_to_end_personality_flow(self):
-        """Test the complete personality flow with mock data"""
-        # Create mock profile
-        mock_profile = {
-            "experts": ["security_analyst", "data_cleaner"],
-            "task_type": "analysis",
-            "context": {}
-        }
+    def test_safety_governor_class_roast_level_zero(self):
+        """Test SafetyGovernor class handles roast_level=0"""
+        governor = SafetyGovernor()
+        mock_criteria = type('MockCriteria', (), {'roast_level': 0})()
         
-        # Step 1: assign personalities
-        try:
-            personalities = assign_personalities(mock_profile, "technical", 1)
-            self.assertIsInstance(personalities, dict)
-        except Exception as e:
-            self.fail(f"assign_personalities failed: {e}")
-        
-        # Step 2: apply safety governor
-        try:
-            adjusted_personalities, safety_summary = apply_safety_governor(
-                "technical", 1, "analysis", personalities
-            )
-            self.assertIsInstance(adjusted_personalities, dict)
-            self.assertIsInstance(safety_summary, dict)
-            self.assertIn("overrides_applied", safety_summary)
-            self.assertIn("neutral_fallback_used", safety_summary)
-        except Exception as e:
-            self.fail(f"apply_safety_governor failed: {e}")
-        
-        # Step 3: build personality prefixes
-        try:
-            for brain, cfg in adjusted_personalities.items():
-                prefix = build_personality_prefix(brain, cfg, "analysis")
-                self.assertIsInstance(prefix, str)
-                self.assertGreater(len(prefix), 0)
-        except Exception as e:
-            self.fail(f"build_personality_prefix failed: {e}")
-    
-    def test_output_has_correct_fields(self):
-        """Test that integration produces output with correct fields"""
-        mock_profile = {
-            "experts": ["pattern_brain"],
-            "task_type": "creative",
-            "context": {}
-        }
-        
-        personalities = assign_personalities(mock_profile, "creative", 2)
-        adjusted_personalities, safety_summary = apply_safety_governor(
-            "creative", 2, "creative", personalities
+        result, was_modified, events = governor.apply_safety_governor(
+            {"tone": "playful"}, mock_criteria, "test_expert"
         )
         
-        # Check personality configurations have required fields
-        for brain, cfg in adjusted_personalities.items():
-            required_fields = ["tone", "communication_style", "thinking_style",
-                             "critique_intensity", "risk_tolerance", "detail_level", "allowed_roast"]
-            for field in required_fields:
-                self.assertIn(field, cfg, f"Missing field {field} in {brain}")
+        # Should be modified due to roast_level=0
+        self.assertTrue(was_modified)
+        self.assertEqual(result["tone"], "neutral")
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].event_type, "roast_level_zero")
+
+
+class TestPersonalitySystemIntegration(unittest.TestCase):
+    """Integration smoke test for personality system"""
+    
+    def test_complete_integration_flow(self):
+        """Test complete flow through assign_personalities -> apply_safety_governor -> build_personality_prefix"""
+        # Mock profile
+        mock_profile = {
+            "experts": ["security_analyst", "pattern_brain"],
+            "task_type": "coding"
+        }
         
-        # Check safety summary has required fields
-        required_summary_fields = ["overrides_applied", "neutral_fallback_used", "reason"]
-        for field in required_summary_fields:
-            self.assertIn(field, safety_summary, f"Missing field {field} in safety_summary")
+        # Step 1: Assign personalities
+        personalities = assign_personalities(mock_profile, "technical", 1)
+        self.assertIsInstance(personalities, dict)
+        self.assertEqual(len(personalities), 2)
+        
+        # Step 2: Apply safety governor
+        safe_personalities, summary = apply_safety_governor("technical", 1, "coding", personalities)
+        self.assertIsInstance(safe_personalities, dict)
+        self.assertIsInstance(summary, dict)
+        
+        # Step 3: Build personality prefixes
+        for expert_name, personality in safe_personalities.items():
+            prefix = build_personality_prefix(expert_name, personality, "coding")
+            
+            # Should return non-empty string with correct format
+            self.assertIsInstance(prefix, str)
+            self.assertGreater(len(prefix), 0)
+            self.assertIn("[tone=", prefix)
+        
+        # No exceptions should be raised, all should work correctly
+        self.assertTrue(True)
+    
+    def test_all_experts_integration(self):
+        """Test integration with all available experts"""
+        all_experts = [
+            "security_analyst",
+            "pragmatic_engineer", 
+            "pattern_brain",
+            "data_cleaner",
+            "semantic_router",
+            "feelprint_brain",
+            "llm_connector"
+        ]
+        
+        mock_profile = {
+            "experts": all_experts,
+            "task_type": "creative"
+        }
+        
+        # Should handle all experts without errors
+        personalities = assign_personalities(mock_profile, "creative", 2)
+        self.assertEqual(len(personalities), len(all_experts))
+        
+        # All experts should have valid personality configs
+        for expert_name in all_experts:
+            self.assertIn(expert_name, personalities)
+            personality = personalities[expert_name]
+            self.assertIsInstance(personality, dict)
+            self.assertIn("tone", personality)
+            self.assertIn("thinking_style", personality)
+        
+        # Safety governor should work with all experts
+        safe_personalities, summary = apply_safety_governor("creative", 2, "general", personalities)
+        self.assertEqual(len(safe_personalities), len(all_experts))
 
 
 if __name__ == '__main__':

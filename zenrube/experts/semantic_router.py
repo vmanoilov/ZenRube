@@ -1,7 +1,16 @@
 import re
 import logging
-import math 
-from typing import Dict
+import math
+from typing import Dict, Optional
+
+# Optional embeddings support
+try:
+    from zenrube.embeddings.client import embed_text
+    from zenrube.embeddings.index import search
+    EMBEDDINGS_AVAILABLE = True
+except ImportError:
+    EMBEDDINGS_AVAILABLE = False
+    logging.info("Embeddings module not available, routing will use keyword matching only")
 
 EXPERT_METADATA = {
     "name": "semantic_router",
@@ -13,65 +22,98 @@ EXPERT_METADATA = {
 
 
 
-# Experts available
+# Experts available with optional embedding namespaces
 EXPERTS = {
-    "systems_architect": [
-        "architecture", "system", "scalability",
-        "design", "blueprint", "refactor",
-        "diagnostic", "root cause", "infrastructure",
-        "performance", "bottleneck"
-    ],
-    "security_analyst": [
-        "security", "vulnerability", "breach", "risk",
-        "attack", "exploit", "penetration", "secure"
-    ],
-    "summarizer": [
-        "summarize", "summary", "condense",
-        "tl;dr", "shorten"
-    ],
-    "pragmatic_engineer": [
-        "implement", "fix", "code", "debug",
-        "practical", "engineer", "solution"
-    ],
-    "publisher": [
-        "write", "publish", "format", "document",
-        "blog", "post", "article", "markdown"
-    ],
-    "autopublisher": [
-        "auto-generate", "auto publish", "automate publishing"
-    ],
-    "data_cleaner": [
-        "clean data", "normalize", "standardize",
-        "preprocess", "sanitize", "fix data"
-    ],
-    "version_manager": [
-        "version", "commit", "history", "changelog",
-        "release", "tag", "semantic versioning"
-    ],
-    "rube_adapter": [
-        "convert", "transform", "adapt", "bridge",
-        "interface", "mapping", "serialize"
-    ],
-    "llm_connector": [
-        "llm", "openai", "claude", "gemini", "qwen", "grok",
-        "external model", "ai model", "chatgpt", "anthropic",
-        "llama", "provider", "api call", "remote model"
-    ],
-    "finance_handler": [
-        "invoice", "bill", "payment", "finance", "money", "cost", "budget"
-    ],
-    "debug_expert": [
-        "error", "bug", "debug", "fix", "issue", "problem", "crash"
-    ],
-    "support_agent": [
-        "help", "support", "assist", "question", "guidance"
-    ],
-    "calendar_flow": [
-        "meeting", "schedule", "calendar", "appointment", "time"
-    ],
-    "priority_handler": [
-        "urgent", "emergency", "critical", "asap", "priority"
-    ]
+    "systems_architect": {
+        "keywords": [
+            "architecture", "system", "scalability",
+            "design", "blueprint", "refactor",
+            "diagnostic", "root cause", "infrastructure",
+            "performance", "bottleneck"
+        ],
+        "embedding_namespace": "systems_architect"
+    },
+    "security_analyst": {
+        "keywords": [
+            "security", "vulnerability", "breach", "risk",
+            "attack", "exploit", "penetration", "secure"
+        ],
+        "embedding_namespace": "security_analyst"
+    },
+    "summarizer": {
+        "keywords": [
+            "summarize", "summary", "condense",
+            "tl;dr", "shorten"
+        ],
+        "embedding_namespace": "summarizer"
+    },
+    "pragmatic_engineer": {
+        "keywords": [
+            "implement", "fix", "code", "debug",
+            "practical", "engineer", "solution"
+        ]
+    },
+    "publisher": {
+        "keywords": [
+            "write", "publish", "format", "document",
+            "blog", "post", "article", "markdown"
+        ]
+    },
+    "autopublisher": {
+        "keywords": [
+            "auto-generate", "auto publish", "automate publishing"
+        ]
+    },
+    "data_cleaner": {
+        "keywords": [
+            "clean data", "normalize", "standardize",
+            "preprocess", "sanitize", "fix data"
+        ]
+    },
+    "version_manager": {
+        "keywords": [
+            "version", "commit", "history", "changelog",
+            "release", "tag", "semantic versioning"
+        ]
+    },
+    "rube_adapter": {
+        "keywords": [
+            "convert", "transform", "adapt", "bridge",
+            "interface", "mapping", "serialize"
+        ]
+    },
+    "llm_connector": {
+        "keywords": [
+            "llm", "openai", "claude", "gemini", "qwen", "grok",
+            "external model", "ai model", "chatgpt", "anthropic",
+            "llama", "provider", "api call", "remote model"
+        ]
+    },
+    "finance_handler": {
+        "keywords": [
+            "invoice", "bill", "payment", "finance", "money", "cost", "budget"
+        ]
+    },
+    "debug_expert": {
+        "keywords": [
+            "error", "bug", "debug", "fix", "issue", "problem", "crash"
+        ]
+    },
+    "support_agent": {
+        "keywords": [
+            "help", "support", "assist", "question", "guidance"
+        ]
+    },
+    "calendar_flow": {
+        "keywords": [
+            "meeting", "schedule", "calendar", "appointment", "time"
+        ]
+    },
+    "priority_handler": {
+        "keywords": [
+            "urgent", "emergency", "critical", "asap", "priority"
+        ]
+    }
 }
 
 # Intent patterns
@@ -111,8 +153,7 @@ class SemanticRouterExpert:
 
     def run(self, prompt: str) -> dict:
         prompt_vec = text_to_vector(prompt)
-        best_score = 0
-        best_expert = "general_handler"
+        expert_scores = {}
         matched_keywords = []
 
         # Determine intent
@@ -126,7 +167,8 @@ class SemanticRouterExpert:
                 break
 
         # Score against each expert
-        for expert, keywords in EXPERTS.items():
+        for expert, config in EXPERTS.items():
+            keywords = config["keywords"]
             kw_text = " ".join(keywords)
             kw_vec = text_to_vector(kw_text)
             score = cosine_sim(prompt_vec, kw_vec)
@@ -136,6 +178,29 @@ class SemanticRouterExpert:
                 if kw in prompt.lower():
                     matched_keywords.append((expert, kw))
 
+            expert_scores[expert] = score
+
+        # Optional embeddings hint
+        embeddings_boost = {}
+        if EMBEDDINGS_AVAILABLE:
+            try:
+                prompt_embedding = embed_text(prompt)
+                for expert, config in EXPERTS.items():
+                    namespace = config.get("embedding_namespace")
+                    if namespace:
+                        results = search(prompt_embedding, namespace=namespace, top_k=1)
+                        if results and results[0]["score"] > 0.75:  # Configurable threshold
+                            boost = results[0]["score"] * 0.1  # Subtle boost
+                            expert_scores[expert] += boost
+                            embeddings_boost[expert] = round(boost, 4)
+                            logging.debug(f"Embeddings boost for {expert}: +{boost}")
+            except Exception as e:
+                logging.debug(f"Embeddings hint failed: {e}")
+
+        # Find best expert
+        best_score = 0
+        best_expert = "general_handler"
+        for expert, score in expert_scores.items():
             if score > best_score:
                 best_score = score
                 best_expert = expert
@@ -157,5 +222,6 @@ class SemanticRouterExpert:
             "intent": intent,
             "route": best_expert,
             "score": round(best_score, 4),
-            "keyword_hits": matched_keywords
+            "keyword_hits": matched_keywords,
+            "embeddings_boost": embeddings_boost
         }
